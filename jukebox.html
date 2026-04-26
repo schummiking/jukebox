@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jukebox 🎵</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #f5f5f5; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; font-size: 28px; margin-bottom: 20px; }
+.search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+.search-box input { flex: 1; padding: 14px 18px; font-size: 18px; border: 2px solid #ddd; border-radius: 10px; outline: none; }
+.search-box input:focus { border-color: #1db954; }
+.search-box button { padding: 14px 28px; font-size: 18px; background: #1db954; color: white; border: none; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.search-box button:hover { background: #1aa34a; }
+.status { text-align: center; color: #888; margin: 20px 0; font-size: 16px; }
+.results { list-style: none; }
+.song { background: white; border-radius: 10px; padding: 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.song-info { flex: 1; min-width: 0; }
+.song-name { font-size: 18px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.song-meta { font-size: 14px; color: #888; margin-top: 4px; }
+.song-meta span { margin-right: 12px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.tag-flac { background: #e8f5e9; color: #2e7d32; }
+.tag-mp3 { background: #fff3e0; color: #e65100; }
+.btn-dl { padding: 10px 20px; font-size: 16px; background: #1db954; color: white; border: none; border-radius: 8px; cursor: pointer; white-space: nowrap; min-width: 80px; }
+.btn-dl:hover { background: #1aa34a; }
+.btn-dl:disabled { background: #ccc; cursor: default; }
+.btn-dl.done { background: #4caf50; }
+.btn-dl.fail { background: #f44336; }
+.btn-group { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-flac { background: #1db954; }
+.btn-mp3 { background: #2196f3; }
+.btn-mp3:hover { background: #1976d2; }
+.footer { text-align: center; color: #aaa; font-size: 13px; margin-top: 30px; }
+.pager { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+.pager button { padding: 10px 20px; font-size: 16px; border: 2px solid #ddd; background: white; border-radius: 8px; cursor: pointer; }
+.pager button:hover { border-color: #1db954; }
+.pager button:disabled { opacity: 0.4; cursor: default; }
+.pager span { padding: 10px; font-size: 16px; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>Jukebox 🎵</h1>
+
+<!-- 登录界面 -->
+<div id="app-login" style="display:none">
+  <div style="background:white;border-radius:12px;padding:30px;box-shadow:0 2px 8px rgba(0,0,0,0.1);text-align:center">
+    <p style="font-size:20px;margin-bottom:20px">需要 QQ 音乐账号才能使用</p>
+    <p style="color:#888;margin-bottom:30px">请按以下步骤登录授权</p>
+    
+    <div style="text-align:left;max-width:500px;margin:0 auto">
+      <p style="font-size:16px;margin-bottom:10px"><b>第一步：</b>打开 QQ 音乐并登录</p>
+      <a href="https://y.qq.com" target="_blank" style="display:inline-block;padding:10px 20px;background:#1db954;color:white;border-radius:8px;text-decoration:none;margin-bottom:20px">打开 y.qq.com →</a>
+      
+      <p style="font-size:16px;margin-bottom:10px"><b>第二步：</b>登录成功后，点击下方按钮复制代码，粘贴到 y.qq.com 的<b>地址栏</b></p>
+      <p style="font-size:14px;color:#e65100;margin-bottom:8px">⚠️ 粘贴后请删掉最前面的 <b>*</b> 号，然后回车</p>
+      <div style="display:flex;gap:8px;margin-bottom:20px">
+        <input id="code-display" readonly style="flex:1;padding:10px;font-size:12px;border:1px solid #ddd;border-radius:6px;font-family:monospace;color:#666" value="*javascript:void(prompt('请全选复制以下内容：',JSON.stringify({uin:document.cookie.match(/uin=(\d+)/)?.[1]||'',musickey:(document.cookie.match(/qm_keyst=([^;]+)/)||[])[1]||'',openid:(document.cookie.match(/psrf_qqopenid=([^;]+)/)||[])[1]||'',access_token:(document.cookie.match(/psrf_qqaccess_token=([^;]+)/)||[])[1]||'',unionid:(document.cookie.match(/psrf_qqunionid=([^;]+)/)||[])[1]||'',refresh_token:(document.cookie.match(/psrf_qqrefresh_token=([^;]+)/)||[])[1]||'',login_type:parseInt((document.cookie.match(/tmeLoginType=(\d+)/)||[])[1]||'2')})))">
+        <button id="copy-btn" onclick="copyCode()" style="padding:10px 16px;background:#2196f3;color:white;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">复制代码</button>
+      </div>
+      
+      <p style="font-size:16px;margin-bottom:10px"><b>第三步：</b>将弹出的内容粘贴到下面，点保存</p>
+      <textarea id="auth-input" rows="3" placeholder="粘贴授权信息..." style="width:100%;padding:10px;font-size:14px;border:2px solid #ddd;border-radius:8px;resize:none;margin-bottom:12px"></textarea>
+      <button onclick="doSaveAuth()" style="width:100%;padding:14px;font-size:18px;background:#1db954;color:white;border:none;border-radius:8px;cursor:pointer">保存授权</button>
+    </div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="app-main" style="display:none">
+<div style="text-align:right;margin-bottom:10px;font-size:14px;color:#888">
+  <span id="user-info"></span> · <a href="#" onclick="doLogout();return false" style="color:#f44336">退出</a>
+</div>
+
+<div class="search-box">
+  <input type="text" id="q" placeholder="输入歌名或歌手..." autofocus>
+  <button onclick="doSearch()">搜索</button>
+</div>
+
+<div class="status" id="status"></div>
+<ul class="results" id="results"></ul>
+<div class="pager" id="pager"></div>
+<div class="footer">QQ音乐无损下载 · 仅供个人使用</div>
+</div><!-- end app-main -->
+
+<script>
+// ===== 认证（从 localStorage 读取） =====
+let AUTH = null;
+const BOOKMARKLET = `javascript:void(prompt('请全选复制以下内容：',JSON.stringify({uin:document.cookie.match(/uin=(\\d+)/)?.[1]||'',musickey:(document.cookie.match(/qm_keyst=([^;]+)/)||[])[1]||'',openid:(document.cookie.match(/psrf_qqopenid=([^;]+)/)||[])[1]||'',access_token:(document.cookie.match(/psrf_qqaccess_token=([^;]+)/)||[])[1]||'',unionid:(document.cookie.match(/psrf_qqunionid=([^;]+)/)||[])[1]||'',refresh_token:(document.cookie.match(/psrf_qqrefresh_token=([^;]+)/)||[])[1]||'',login_type:parseInt((document.cookie.match(/tmeLoginType=(\\d+)/)||[])[1]||'2')})))`;
+
+function computeGtk(key) {
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h += (h << 5) + key.charCodeAt(i);
+  return h & 0x7FFFFFFF;
+}
+
+function loadAuth() {
+  try {
+    const raw = localStorage.getItem('jukebox_auth');
+    if (raw) {
+      AUTH = JSON.parse(raw);
+      AUTH.g_tk = computeGtk(AUTH.musickey);
+      AUTH.guid = AUTH.guid || '6647472985';
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function saveAuth(data) {
+  AUTH = data;
+  AUTH.g_tk = computeGtk(AUTH.musickey);
+  AUTH.guid = AUTH.guid || '6647472985';
+  localStorage.setItem('jukebox_auth', JSON.stringify(AUTH));
+}
+
+function showLogin() {
+  document.getElementById('app-main').style.display = 'none';
+  document.getElementById('app-login').style.display = 'block';
+}
+
+function showMain() {
+  document.getElementById('app-login').style.display = 'none';
+  document.getElementById('app-main').style.display = 'block';
+  document.getElementById('user-info').textContent = 'QQ: ' + AUTH.uin;
+}
+
+function doLogout() {
+  localStorage.removeItem('jukebox_auth');
+  AUTH = null;
+  showLogin();
+}
+
+function doSaveAuth() {
+  const raw = document.getElementById('auth-input').value.trim();
+  try {
+    const data = JSON.parse(raw);
+    if (!data.uin || !data.musickey) { alert('格式不对，请重新复制'); return; }
+    saveAuth(data);
+    refreshAuth().then(() => showMain());
+  } catch(e) { alert('格式不对，请重新复制'); }
+}
+
+function copyCode() {
+  const code = document.getElementById('code-display').value;
+  navigator.clipboard?.writeText(code).then(() => {
+    document.getElementById('copy-btn').textContent = '✓ 已复制';
+    setTimeout(() => { document.getElementById('copy-btn').textContent = '复制代码'; }, 2000);
+  }).catch(() => {
+    document.getElementById('code-display').select();
+  });
+}
+
+async function refreshAuth() {
+  if (!AUTH || !AUTH.refresh_token) return;
+  try {
+    const data = JSON.stringify({
+      comm: { tmeLoginType: AUTH.login_type || 2 },
+      req_0: {
+        module: 'music.login.LoginServer', method: 'Login',
+        param: {
+          openid: AUTH.openid, access_token: AUTH.access_token,
+          unionid: AUTH.unionid, refresh_token: AUTH.refresh_token,
+          musickey: AUTH.musickey, musicid: parseInt(AUTH.uin),
+          loginMode: 2
+        }
+      }
+    });
+    const resp = await jsonp('https://u.y.qq.com/cgi-bin/musicu.fcg?data=' + encodeURIComponent(data));
+    const newKey = resp.req_0?.data?.musickey;
+    if (newKey) {
+      AUTH.musickey = newKey;
+      AUTH.g_tk = computeGtk(newKey);
+      localStorage.setItem('jukebox_auth', JSON.stringify(AUTH));
+    }
+  } catch(e) {}
+}
+
+// 初始化
+if (loadAuth()) {
+  refreshAuth().then(() => showMain());
+} else {
+  showLogin();
+}
+
+// ===== JSONP 工具 =====
+let jsonpId = 0;
+let lastReq = 0;
+function jsonp(url) {
+  const now = Date.now();
+  const wait = Math.max(0, 1000 - (now - lastReq));
+  lastReq = now + wait;
+  return new Promise(r => setTimeout(r, wait)).then(() => new Promise((resolve, reject) => {
+    const cb = '_jb_' + (++jsonpId);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('超时')); }, 15000);
+    function cleanup() { clearTimeout(timer); delete window[cb]; if (script.parentNode) script.remove(); }
+    window[cb] = (data) => { cleanup(); resolve(data); };
+    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    script.onerror = () => { cleanup(); reject(new Error('请求失败')); };
+    document.head.appendChild(script);
+  }));
+}
+
+// ===== 搜索 =====
+let currentQuery = '';
+let currentPage = 1;
+const PAGE_SIZE = 20;
+
+async function doSearch(page) {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  currentQuery = q;
+  currentPage = page || 1;
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  const pager = document.getElementById('pager');
+  status.textContent = '搜索中...';
+  results.innerHTML = '';
+  pager.innerHTML = '';
+
+  try {
+    const data = JSON.stringify({
+      search: {
+        method: 'DoSearchForQQMusicDesktop',
+        module: 'music.search.SearchCgiService',
+        param: { query: q, num_per_page: PAGE_SIZE, page_num: currentPage }
+      }
+    });
+    const resp = await jsonp('https://u.y.qq.com/cgi-bin/musicu.fcg?data=' + encodeURIComponent(data));
+    const songs = resp.search?.data?.body?.song?.list || [];
+    const total = resp.search?.data?.meta?.sum || 0;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+
+    if (!songs.length) { status.textContent = '没有找到结果'; return; }
+    status.textContent = `第 ${currentPage} 页，${songs.length} 首`;
+
+    songs.forEach((s, i) => {
+      const artist = (s.singer || []).map(x => x.name).join(', ');
+      const album = s.album?.name || '';
+      const mid = s.mid;
+      const mediamid = s.file?.media_mid || '';
+      const flacSize = s.file?.size_flac || 0;
+      const mp3Size = s.file?.size_320mp3 || 0;
+      const dur = s.interval ? `${Math.floor(s.interval/60)}:${String(s.interval%60).padStart(2,'0')}` : '';
+
+      // Store song data for onclick
+      const key = 'song_' + i;
+      window[key] = { mid, mediamid, name: s.name, artist };
+
+      let btns = '';
+      if (flacSize > 0) {
+        btns += `<button class="btn-dl btn-flac" onclick="dlSong('${key}','flac',this)">FLAC ${(flacSize/1024/1024).toFixed(0)}MB</button>`;
+      }
+      if (mp3Size > 0) {
+        btns += `<button class="btn-dl btn-mp3" onclick="dlSong('${key}','mp3',this)">MP3 ${(mp3Size/1024/1024).toFixed(0)}MB</button>`;
+      }
+      if (!btns) {
+        btns = `<button class="btn-dl" disabled>无资源</button>`;
+      }
+
+      const li = document.createElement('li');
+      li.className = 'song';
+      li.innerHTML = `
+        <div class="song-info">
+          <div class="song-name">${esc(s.name)}</div>
+          <div class="song-meta">
+            <span>${esc(artist)}</span>
+            <span>${esc(album)}</span>
+            <span>${dur}</span>
+          </div>
+        </div>
+        <div class="btn-group">${btns}</div>
+      `;
+      results.appendChild(li);
+    });
+
+    // 翻页按钮
+    const hasNext = songs.length >= PAGE_SIZE;
+    let pages = '';
+    const start = Math.max(1, currentPage - 3);
+    const end = hasNext ? currentPage + 3 : currentPage;
+    for (let p = start; p <= end; p++) {
+      pages += p === currentPage
+        ? `<button style="background:#1db954;color:white;border-color:#1db954" disabled>${p}</button>`
+        : `<button onclick="doSearch(${p})">${p}</button>`;
+    }
+    pager.innerHTML = `
+      <button ${currentPage <= 1 ? 'disabled' : ''} onclick="doSearch(${currentPage - 1})">上一页</button>
+      ${pages}
+      <button ${!hasNext ? 'disabled' : ''} onclick="doSearch(${currentPage + 1})">下一页</button>
+    `;
+  } catch (e) {
+    status.textContent = '搜索失败，3秒后重试...';
+    setTimeout(() => doSearch(currentPage), 3000);
+  }
+}
+
+// ===== 下载 =====
+function dlSong(key, fmt, btn) {
+  const s = window[key];
+  doDownload(s.mid, s.mediamid, s.name, s.artist, fmt, btn);
+}
+
+async function doDownload(songmid, mediamid, name, artist, fmt, btn) {
+  btn.disabled = true;
+  btn.textContent = '获取中...';
+
+  const prefix = fmt === 'flac' ? 'F000' : 'M800';
+  const ext = fmt === 'flac' ? '.flac' : '.mp3';
+
+  try {
+    const data = JSON.stringify({
+      comm: {
+        cv: 4747474, ct: 24, format: 'json',
+        uin: AUTH.uin, authst: AUTH.musickey, platform: 'yqq.json'
+      },
+      req_0: {
+        module: 'vkey.GetVkeyServer',
+        method: 'CgiGetVkey',
+        param: {
+          guid: AUTH.guid,
+          songmid: [songmid],
+          songtype: [0],
+          uin: AUTH.uin,
+          loginflag: 1,
+          platform: '20',
+          filename: [prefix + mediamid + ext]
+        }
+      }
+    });
+
+    const url = 'https://u.y.qq.com/cgi-bin/musicu.fcg?g_tk=' + AUTH.g_tk + '&data=' + encodeURIComponent(data);
+    const resp = await jsonp(url);
+    const purl = resp.req_0?.data?.midurlinfo?.[0]?.purl || '';
+    const sip = resp.req_0?.data?.sip?.[0] || '';
+
+    if (purl) {
+      let dlUrl = sip + purl;
+      // 强制HTTPS避免insecure download警告
+      dlUrl = dlUrl.replace('http://', 'https://');
+
+      btn.textContent = '下载中...';
+
+      // 用fetch下载到内存，然后用Blob触发下载（可自定义文件名）
+      try {
+        const resp = await fetch(dlUrl);
+        if (!resp.ok) throw new Error('CDN ' + resp.status);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = name + ' - ' + artist + ext;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+        btn.textContent = '✓ 已下载';
+        btn.className = 'btn-dl done';
+      } catch (e2) {
+        // fallback: 直接打开链接
+        window.open(dlUrl);
+        btn.textContent = '✓ 已下载';
+        btn.className = 'btn-dl done';
+      }
+    } else {
+      btn.textContent = '无资源';
+      btn.className = 'btn-dl fail';
+    }
+  } catch (e) {
+    btn.textContent = '失败';
+    btn.className = 'btn-dl fail';
+  }
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// 回车搜索
+document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+</script>
+
+</body>
+</html>
